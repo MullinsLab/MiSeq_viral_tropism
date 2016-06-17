@@ -32,7 +32,7 @@ while (my $line = <IN>) {
 close IN;
 close TMP;
 
-system("muscle -in $tmpfile -out $alnvariantfile -quiet");
+system("bin/muscle -in $tmpfile -out $alnvariantfile -quiet");
 
 unlink($tmpfile);
 my $name = "";

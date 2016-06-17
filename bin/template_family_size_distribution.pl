@@ -33,4 +33,4 @@ foreach my $count (sort{$a <=> $b} keys %countCount) {
 }
 close OUT;
 
-print "\n* template_family_size_distribution.pl: total $totalcount template ids with length of 12nt\n";
+print "\n* template_family_size_distribution.pl: total $totalcount template ids with length between $min and $max bps\n";
