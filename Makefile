@@ -67,11 +67,11 @@ $(SDATA)/$(sample)_sickle_cutadapt_pear_rt_t.fasta : $(SDATA)/$(sample)_sickle_c
 $(SDATA)/$(sample)_templates.txt : $(SDATA)/$(sample)_sickle_cutadapt_pear_rt_t.fasta	
 	$(BIN)/retrieve_templateid_from_tnpfile.pl $^ $@ >> $(SDATA)/$(sample).log
 $(SDATA)/template_sequences.log : $(SDATA)/$(sample)_templates.txt $(SDATA)/$(sample)_sickle_cutadapt_pear_rt.fastq
-	$(BIN)/retrieve_sequences_per_template_family_gt2.pl $^ $(TEMPID) >> $(sample).log
+	$(BIN)/retrieve_sequences_per_template_family_gt2.pl $^ $(TEMPID) >> $(SDATA)/$(sample).log
 $(SDATA)/$(sample)_consensus.fasta : $(SDATA)/template_sequences.log
 	$(BIN)/cal_consensus_qual_from_dir.pl $(SDATA)/template_sequences $@ >> $(SDATA)/$(sample).log
 $(SDATA)/$(sample)_variants.fasta : $(SDATA)/$(sample)_consensus.fasta
-	$(BIN)/unique_consensus.pl $^ $@ >> $(sample).log	
+	$(BIN)/unique_consensus.pl $^ $@ >> $(SDATA)/$(sample).log	
 $(SDATA)/$(sample)_v3.fasta : $(SDATA)/$(sample)_variants.fasta $(AMPREF)
 	$(BIN)/extract_v3.pl $^ $@ >> $(SDATA)/$(sample).log
 $(SDATA)/$(sample)_templates_family_size.txt : $(SDATA)/$(sample)_v3.fasta
@@ -80,9 +80,10 @@ $(SDATA)/$(sample)_templates_size.txt : $(SDATA)/$(sample)_templates_family_size
 	$(BIN)/template_size_distribution.pl $(SDATA)/$(sample)_templates.txt $@ >> $(SDATA)/$(sample).log
 $(SDATA)/$(sample)_fragment_size.txt : $(SDATA)/$(sample)_templates_size.txt
 	$(BIN)/fragment_size_distribution.pl $(SDATA)/$(sample)_sickle_cutadapt_pear_all_rt.fastq $@ >> $(SDATA)/$(sample).log
-
-clean : 
 	rm -rfv $(SDATA)/template_sequences/
-	rm $(SDATA)/*.log $(SDATA)/*.fasta $(SDATA)/*.txt $(SDATA)/*.aln $(SDATA)/*_sickle*.*
+	rm $(SDATA)/*_sickle*.*
+	
+clean : 
+	rm $(SDATA)/*.log $(SDATA)/*.fasta $(SDATA)/*.txt $(SDATA)/*.aln 
 	
 
