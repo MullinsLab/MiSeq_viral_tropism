@@ -13,6 +13,9 @@ MINLEN := 300
 TEMPID := 12
 MIN := 12
 MAX := 12
+TFS ?= 0	# template family size cutoff - default to use cutoff model to determine template family size cutoff to calculate consensus
+SM ?= 0		# supermajority cutoff - default to calculate consensus using simple majority
+ER ?= 0.005	# overall error rate cutoff (default 0.05) - used to calculate template family size cutoff (the other allowed values are 0.01 and 0.02)
 
 TEXT := $(shell bin/parse_refs.pl $(FPFILE) $(RPFILE) $(RTFILE))
 RT := $(word 1, $(TEXT))
@@ -75,10 +78,10 @@ $(SDATA)/$(sample)_templates.txt : $(SDATA)/$(sample)_sickle_cutadapt_pear_rt_t.
 	$(BIN)/retrieve_templateid_from_tnpfile.pl $^ $@ >> $(SDATA)/$(sample).log
 # retrieve merged reads for each template id with the length of template id = TEMPID (here 12) and family size of merged reads >= 3
 $(SDATA)/template_sequences.log : $(SDATA)/$(sample)_templates.txt $(SDATA)/$(sample)_sickle_cutadapt_pear_rt.fastq
-	$(BIN)/retrieve_sequences_per_template_family_gt2.pl $^ $(TEMPID) >> $(SDATA)/$(sample).log
+	$(BIN)/retrieve_sequences_per_template_family_cutoff.pl $^ $(TEMPID) $(ER) $(TFS) >> $(SDATA)/$(sample).log
 # calculate consensus sequence for each template id
 $(SDATA)/$(sample)_consensus.fasta : $(SDATA)/template_sequences.log
-	$(BIN)/cal_consensus_qual_from_dir.pl $(SDATA)/template_sequences $@ >> $(SDATA)/$(sample).log
+	$(BIN)/cal_consensus_supermajority_from_dir.pl $(SDATA)/template_sequences $^ $@ $(SM) >> $(SDATA)/$(sample).log
 # collaps template consensus to variants
 $(SDATA)/$(sample)_variants.fasta : $(SDATA)/$(sample)_consensus.fasta
 	$(BIN)/unique_consensus.pl $^ $@ >> $(SDATA)/$(sample).log	
@@ -94,7 +97,7 @@ $(SDATA)/$(sample)_templates_size.txt : $(SDATA)/$(sample)_templates_family_size
 # calculate distribution of all merged reads
 $(SDATA)/$(sample)_fragment_size.txt : $(SDATA)/$(sample)_templates_size.txt
 	$(BIN)/fragment_size_distribution.pl $(SDATA)/$(sample)_sickle_cutadapt_pear_all_rt.fastq $@ >> $(SDATA)/$(sample).log
-	rm -rfv $(SDATA)/template_sequences/
+#	rm -rfv $(SDATA)/template_sequences/
 	rm $(SDATA)/*_sickle*.*
 	
 clean : 
