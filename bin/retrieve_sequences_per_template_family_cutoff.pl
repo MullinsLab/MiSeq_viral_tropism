@@ -52,9 +52,17 @@ while (my $line = <IN>) {
 					$familycut = 0.0079 * $count + 9.4869;
 				}				
 			}elsif ($errorrate == 0.01) {
-				
-			}else {
-				
+				if ($count <= 10) {
+					$familycut = 2;
+				}else {
+					$familycut = 1.09*10**-26*$count**6 + 7.82*10**-22*$count**5 - 1.93*10**-16*$count**4 + 1.01*10**-11*$count**3 - 2.31*10**-7*$count**2 + 0.00645*$count + 2.872;
+				}
+			}else { # default for error rate of 0.005
+				if ($count <= 10) {
+					$familycut = 2;
+				}else {
+					$familycut = -9.59*10**-27*$count**6 + 3.27*10**-21*$count**5 - 3.05*10**-16*$count**4 + 1.2*10**-11*$count**3 - 2.19*10**-7*$count**2 + 0.004044*$count + 2.273;
+				}
 			}
 			$familycut = int($familycut + 0.5);
 		}
