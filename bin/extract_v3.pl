@@ -3,10 +3,14 @@
 use strict;
 use File::Path;
 
-my $usage = "perl extract_v3.pl invariantsfile inampreffile outv3file\n";
+my $usage = "perl extract_v3.pl invariantsfile inampreffile outv3file v3SizeRange(fraction between 1 and 1.5)\n";
 my $infile = shift or die $usage;
 my $reffile = shift or die $usage;
 my $outfile = shift or die $usage;
+my $range = shift || 0;	# if 0, includes all
+my $includefile = my $excludefile = $outfile;
+$includefile =~ s/\.fasta/_$range\.fasta/;
+$excludefile =~ s/\.fasta/_exclude\.fasta/;
 my $ref = "";
 open REF, $reffile or die "couldn't open $reffile: $!\n";
 while (my $line = <REF>) {
@@ -105,12 +109,36 @@ foreach my $name (@names) {
 
 open OUT, ">", $outfile or die "couldn't open $outfile: $!\n";
 $idx = 0;
+my $minlen = my $maxlen = my $icount = my $ecount = 0;
+my ($incl, $excl);
+if ($range) {
+	$minlen = (2 - $range) * 105;
+	$maxlen = $range * 105;
+	open $incl, ">", $includefile or die "couldn't open $includefile: $!\n";
+	open $excl, ">", $excludefile or die "couldn't open $excludefile: $!\n";
+}
 foreach my $v3 (sort{$v3Count{$b} <=> $v3Count{$a}} keys %v3Count) {
 	++$idx;
 	my $name = "v3_$idx"."_$v3Count{$v3}";
 	print OUT ">$name\n$v3\n";
+	if ($range) {	# value is between 1 and 1.5		
+		if (length $v3 >= $minlen and length $v3 <= $maxlen) {
+			print $incl ">$name\n$v3\n";
+			++$icount;
+		}else {
+			print $excl ">$name\n$v3\n";
+			++$ecount;
+		}
+	}
 }
-close OUT;
+if ($range) {
+	close $incl or die "couldn't close $includefile: $!\n";
+	close $excl or die "couldn't close $excludefile: $!\n";
+}
+close OUT or die "couldn't close $outfile: $!\n";
 
-print "\n* extract_v3.pl: implemented $varcount variants, $coverv3 cover v3 loop, $notcoverv3 not, extract $idx v3 variants\n";
-
+print "\n* extract_v3.pl: implemented $varcount variants, $coverv3 cover v3 loop, $notcoverv3 not, extract $idx v3 variants";
+if ($range) {
+	print ", $icount v3 rariants in the range of $range, $ecount excluded";
+}
+print "\n";

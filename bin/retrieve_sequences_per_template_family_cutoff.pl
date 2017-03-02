@@ -2,6 +2,7 @@
 
 use strict;
 use File::Path;
+use File::Copy;
 use File::Basename;
 
 my $usage = "perl retrieve_sequences_per_template_family_cutoff.pl inTemplateFile inRTtrimmedFastq templateidlength errorrate(default 0.005) templatefamilysizecutoff(default 0)\n";
@@ -11,7 +12,7 @@ my $tempidlen = shift or die $usage;
 my $errorrate = shift || 0.005;	# overall error rate used to calculate template family size cutoff
 my $familycut = shift || 0; # if 0, using cutoff model to determine template family size cutoff
 my $dir = dirname($intemplate);
-my $totalcount = my $gtcutoff = my $passlencut = my $notpasslencut = 0;
+my $totalcount = my $gtcutoff = my $tempidlencount = 0;
 my (%nameFullname, %nameSeq, %nameQual);
 open FASTQ, $inRTtrimmed or die "couldn't open $inRTtrimmed: $!\n";
 while (my $line = <FASTQ>) {
@@ -65,44 +66,56 @@ while (my $line = <IN>) {
 				}
 			}
 			$familycut = int($familycut + 0.5);
+			if ($familycut < 3) {
+				$familycut = 3;
+			}
 		}
 		if ($count >= $familycut) {
-			my $totallen = my $avglen = 0;
 			@names = split /,/, $name;
+			my %seqCount = my %seqNames = ();
+			my $uniqfasta = $outdir."/".$id."_$count"."_uniq.fasta";
+			my $namefile = $outdir."/".$id."_$count"."_uniq_name.txt";
 			foreach my $n (@names) {
-				$totallen += length $nameSeq{$n};
-			}
-			$avglen = $totallen / $count;
-			if ($avglen > 250) {
-				my $fastq = $outdir."/".$id."_$count.fastq";
-				my $fasta = $outdir."/".$id."_$count.fasta";
-				open FASTQ, ">", $fastq or die "couldn't open $fastq: $!\n";
-				open FASTA, ">", $fasta or die "couldn't open $fasta: $!\n";
-				foreach my $n (@names) {
-					if ($nameSeq{$n}) {
-						print FASTQ "$nameFullname{$n}\n$nameSeq{$n}\n+\n$nameQual{$n}\n";
-						print FASTA ">$nameFullname{$n}\n$nameSeq{$n}\n";
-					}else {
-						die "something wrong\n";
-					}
+				my $seq = $nameSeq{$n};
+				if ($seq) {		
+					++$seqCount{$seq};
+					push @{$seqNames{$seq}}, $n;
+				}else {
+					die "something wrong\n";
 				}
-				close FASTQ;
-				my $alignfile = $outdir."/".$id."_$count.aln";
-				system("bin/muscle -in $fasta -out $alignfile -quiet");
-				++$passlencut;
+			}
+			my $idx = 0;
+			my %uniqidxNames = ();
+			open UFASTA, ">", $uniqfasta or die "couldn't open $uniqfasta: $!\n";
+			open NFILE, ">", $namefile or die "couldn't open $namefile: $!\n";
+			foreach my $seq (sort{$seqCount{$b} <=> $seqCount{$a}} keys %seqCount) {
+				++$idx;
+				my $name = "uniq_$idx"."_$seqCount{$seq}";
+				print UFASTA ">$name\n$seq\n";
+				print NFILE "$name\t", join(',', @{$seqNames{$seq}}), "\n";
+				push @{$uniqidxNames{$name}}, @{$seqNames{$seq}};
+			}			
+			close UFASTA;
+			close NFILE;
+			# align unique sequences
+			my $uniqalignfile = $uniqfasta;
+			$uniqalignfile =~ s/\.fasta/\.aln/;
+			if (keys %uniqidxNames == 1) {	# one unique sequence, don't need to align
+				copy($uniqfasta, $uniqalignfile) or die "copy failed: $!\n";
 			}else {
-				++$notpasslencut;
+				system("bin/muscle -in $uniqfasta -out $uniqalignfile -quiet");
 			}			
 			++$gtcutoff;
 		}
-		++$totalcount;	
+		++$tempidlencount;			
 	}
+	++$totalcount;
 }
 close IN;
 
 my $logfile = "$dir/template_sequences.log";
 open LOG, ">", $logfile or die "couldn't open $logfile: $!\n";
-print LOG "retrieve_sequences_per_template_family_cutoff.pl: Total $totalcount template ids, $gtcutoff templates' family size >= $familycut, $passlencut templates average fragment size > 250bp, $notpasslencut not\n";
+print LOG "retrieve_sequences_per_template_family_cutoff.pl: Total $totalcount template ids, $tempidlencount with template id length of $tempidlen, $gtcutoff templates' family size >= $familycut\n";
 close LOG;
 
-print "\n* retrieve_sequences_per_template_family_cutoff.pl: Total $totalcount template ids, $gtcutoff templates' family size >= $familycut, $passlencut templates average fragment size > 250bp, $notpasslencut not\n";
+print "\n* retrieve_sequences_per_template_family_cutoff.pl: Total $totalcount template ids, $tempidlencount with template id length of $tempidlen, $gtcutoff templates' family size >= $familycut\n";

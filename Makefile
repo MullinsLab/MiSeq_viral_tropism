@@ -16,6 +16,7 @@ MAX := 12
 TFS ?= 0	# template family size cutoff - default to use cutoff model to determine template family size cutoff to calculate consensus
 SM ?= 0		# supermajority cutoff - default to calculate consensus using simple majority
 ER ?= 0.005	# overall error rate cutoff (default 0.05) - used to calculate template family size cutoff (the other allowed values are 0.01 and 0.02)
+V3 ?= 1.2		# V3 sequences within range of V3 loop size to keep. 0 means no range, including all (value between 1 and 1.5)
 
 TEXT := $(shell bin/parse_refs.pl $(FPFILE) $(RPFILE) $(RTFILE))
 RT := $(word 1, $(TEXT))
@@ -76,7 +77,7 @@ $(SDATA)/$(sample)_sickle_cutadapt_pear_rt_t.fasta : $(SDATA)/$(sample)_sickle_c
 # collaps each template id and link merged reads to templated id
 $(SDATA)/$(sample)_templates.txt : $(SDATA)/$(sample)_sickle_cutadapt_pear_rt_t.fasta	
 	$(BIN)/retrieve_templateid_from_tnpfile.pl $^ $@ >> $(SDATA)/$(sample).log
-# retrieve merged reads for each template id with the length of template id = TEMPID (here 12) and family size of merged reads >= 3
+# retrieve merged reads for each template id with the length of template id = TEMPID (here 12) and family size of merged reads >= $(TFS)
 $(SDATA)/template_sequences.log : $(SDATA)/$(sample)_templates.txt $(SDATA)/$(sample)_sickle_cutadapt_pear_rt.fastq
 	$(BIN)/retrieve_sequences_per_template_family_cutoff.pl $^ $(TEMPID) $(ER) $(TFS) >> $(SDATA)/$(sample).log
 # calculate consensus sequence for each template id
@@ -87,7 +88,7 @@ $(SDATA)/$(sample)_variants.fasta : $(SDATA)/$(sample)_consensus.fasta
 	$(BIN)/unique_consensus.pl $^ $@ >> $(SDATA)/$(sample).log	
 # extract V3 loop from variants and collaps to V3 variants	
 $(SDATA)/$(sample)_v3.fasta : $(SDATA)/$(sample)_variants.fasta $(AMPREF)
-	$(BIN)/extract_v3.pl $^ $@ >> $(SDATA)/$(sample).log
+	$(BIN)/extract_v3.pl $^ $@ $(V3) >> $(SDATA)/$(sample).log
 # calculate template family size distributions for template id length between MIN and MAX (here 12)
 $(SDATA)/$(sample)_templates_family_size.txt : $(SDATA)/$(sample)_v3.fasta
 	$(BIN)/template_family_size_distribution.pl $(SDATA)/$(sample)_templates.txt $@ $(MIN) $(MAX) >> $(SDATA)/$(sample).log

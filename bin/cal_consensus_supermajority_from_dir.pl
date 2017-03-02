@@ -23,20 +23,19 @@ while (my $line = <LOG>) {
 }
 close LOG;
 die "No template family size cutoff\n" if (!$tfamilycut);
-
-open OUT, ">$outfile" or die "couldn't open $outfile: $!\n";
+my (@consnames, %consnameSeq);
 opendir DIR, $indir or die "couldn't open $indir: $!\n";
 while (my $name = readdir DIR) {
-	if ($name =~ /(.*?)\.aln/) {
+	if ($name =~ /(.*?)_uniq\.aln/) {
 		my $inFASTA = $indir."/$name";
 		my $consname = $1."_consensus";		
 		my $count = my $alignlen = 0;
-		my (%fastanameSeq, $seqName, @seqNames);
+		my (%fastanameSeq, $seqName, @seqNames, %nameDup);
 		open FASTA, $inFASTA or die "couldn't open $inFASTA: $!\n";
 		while (my $line = <FASTA>) {
 			chomp $line;
 			next if ($line =~ /^\s*$/);
-			if ($line =~ /^>(.*)$/) {
+			if ($line =~ /^>(.*?)_(\d+)$/) {
 				if ($count == 1) {
 					$alignlen = length $fastanameSeq{$seqName};
 				}elsif ($count > 1) {
@@ -46,7 +45,8 @@ while (my $name = readdir DIR) {
 				}
 				$seqName = $1;
 				push @seqNames, $seqName;
-				$count++;
+				++$count;
+				$nameDup{$seqName} = $2;
 			}else {
 				if (!$fastanameSeq{$seqName}) {
 					$fastanameSeq{$seqName} = '';
@@ -54,9 +54,12 @@ while (my $name = readdir DIR) {
 				$fastanameSeq{$seqName} .= $line;		
 			}
 		}
-		# last sequence
-		if (length $fastanameSeq{$seqName} != $alignlen) {
-			die "sequences not aligned\n";
+		if ($count == 1) {
+			$alignlen = length $fastanameSeq{$seqName};
+		}elsif ($count > 1) {	# last sequence
+			if (length $fastanameSeq{$seqName} != $alignlen) {
+				die "sequences not aligned\n";
+			}
 		}
 		close FASTA;
 		my %posCoverage = my %posNtcoverage = ();
@@ -77,9 +80,9 @@ while (my $name = readdir DIR) {
 				}
 			}
 			for (my $i = $start; $i <= $end; $i++) {
-				++$posCoverage{$i};
+				$posCoverage{$i} += $nameDup{$name};
 				my $nt = $alignnts[$i];
-				++$posNtcoverage{$i}{$nt};
+				$posNtcoverage{$i}{$nt} += $nameDup{$name};
 			}
 		}
 		my %consNt = ();
@@ -134,17 +137,22 @@ while (my $name = readdir DIR) {
 		if ($flag) {
 			my $consseq = '';
 			for (my $i = 0; $i < $alignlen; $i++) {
-				if (!$consNt{$i}) {
+				if (!$consNt{$i}) { # in case that one or both ends coverage is less that tfamilycut
 					$consNt{$i} = '';
 				}
 				$consseq .= $consNt{$i};
 			}
-			print OUT ">$consname\n";
-			print OUT $consseq,"\n";
+			push @consnames, $consname;
+			$consnameSeq{$consname} = $consseq;
 			++$qualified;
 		}		
 		++$filecount;
 	}
+}
+closedir DIR;
+open OUT, ">$outfile" or die "couldn't open $outfile: $!\n";
+for my $name (sort{$a cmp $b} @consnames) {
+	print OUT ">$name\n$consnameSeq{$name}\n";
 }
 close OUT;
 
