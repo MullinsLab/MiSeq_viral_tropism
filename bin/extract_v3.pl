@@ -107,37 +107,61 @@ foreach my $name (@names) {
 	}
 }
 
-open OUT, ">", $outfile or die "couldn't open $outfile: $!\n";
-$idx = 0;
 my $minlen = my $maxlen = my $icount = my $ecount = 0;
-my ($incl, $excl);
 if ($range) {
 	$minlen = (2 - $range) * 105;
 	$maxlen = $range * 105;
-	open $incl, ">", $includefile or die "couldn't open $includefile: $!\n";
-	open $excl, ">", $excludefile or die "couldn't open $excludefile: $!\n";
+	open IV3, ">", $includefile or die "couldn't open $excludefile: $!\n";
+	open EV3, ">", $excludefile or die "couldn't open $excludefile: $!\n";
 }
+# maximum 50 sequences in one file
+my $fileidx = my $pifileidx = my $v3idx = 0;
+open OUT, ">", $outfile or die "couldn't open $outfile: $!\n";
 foreach my $v3 (sort{$v3Count{$b} <=> $v3Count{$a}} keys %v3Count) {
-	++$idx;
-	my $name = "v3_$idx"."_$v3Count{$v3}";
-	print OUT ">$name\n$v3\n";
+	++$v3idx;
+	my $name = "v3_$v3idx"."_$v3Count{$v3}";
+	print OUT ">$name\n$v3\n";	
 	if ($range) {	# value is between 1 and 1.5		
 		if (length $v3 >= $minlen and length $v3 <= $maxlen) {
-			print $incl ">$name\n$v3\n";
 			++$icount;
+			if ($icount % 50 == 1) {
+				unless ($icount == 1) {
+					close PIV3;
+				}
+				++$pifileidx;
+				my $pifile = $includefile;
+				$pifile =~ s/\.fasta/_$pifileidx.fasta/;
+				open PIV3, ">", $pifile or die "couldn't open $pifile: $!\n";
+			}
+			print PIV3 ">$name\n$v3\n";	
+			print IV3 ">$name\n$v3\n";			
 		}else {
-			print $excl ">$name\n$v3\n";
+			print EV3 ">$name\n$v3\n";
 			++$ecount;
 		}
+	}else {
+		if ($v3idx % 50 == 1) {
+			unless ($v3idx == 1) {
+				close PARTIALV3;
+			}		
+			++$fileidx;
+			my $v3file = $outfile;
+			$v3file =~ s/\.fasta/_$fileidx.fasta/;
+			open PARTIALV3, ">", $v3file or die "couldn't open $v3file: $!\n";
+		}
+		print PARTIALV3 ">$name\n$v3\n";
 	}
 }
 if ($range) {
-	close $incl or die "couldn't close $includefile: $!\n";
-	close $excl or die "couldn't close $excludefile: $!\n";
+	close IV3 or die "couldn't close $includefile: $!\n";	
+	close EV3 or die "couldn't close $excludefile: $!\n";
+	close PIV3;	
+}else {
+	close PARTIALV3;
 }
 close OUT or die "couldn't close $outfile: $!\n";
 
-print "\n* extract_v3.pl: implemented $varcount variants, $coverv3 cover v3 loop, $notcoverv3 not, extract $idx v3 variants";
+print "\n* extract_v3.pl: implemented $varcount variants, $coverv3 cover v3 loop, $notcoverv3 not, extract $v3idx v3 variants";
 if ($range) {
 	print ", $icount v3 rariants in the range of $range, $ecount excluded";
 }
